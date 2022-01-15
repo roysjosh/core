@@ -146,6 +146,11 @@ ZEROCONF = {
             "domain": "homekit_controller"
         }
     ],
+    "_hap._udp.local.": [
+        {
+            "domain": "homekit_controller"
+        }
+    ],
     "_homekit._tcp.local.": [
         {
             "domain": "homekit"
@@ -387,7 +392,6 @@ HOMEKIT = {
     "Iota": "abode",
     "LIFX": "lifx",
     "MYQ": "myq",
-    "NL*": "nanoleaf",
     "Netatmo Relay": "netatmo",
     "PowerView": "hunterdouglas_powerview",
     "Presence": "netatmo",

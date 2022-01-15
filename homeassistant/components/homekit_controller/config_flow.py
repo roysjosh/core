@@ -35,7 +35,8 @@ HOMEKIT_IGNORE = [
 
 PAIRING_FILE = "pairing.json"
 
-MDNS_SUFFIX = "._hap._tcp.local."
+MDNS_SUFFIX_TCP = "._hap._tcp.local."
+MDNS_SUFFIX_UDP = "._hap._udp.local."
 
 PIN_FORMAT = re.compile(r"^(\d{3})-{0,1}(\d{2})-{0,1}(\d{3})$")
 
@@ -98,6 +99,7 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self.model = None
         self.hkid = None
         self.name = None
+        self.type = None
         self.devices = {}
         self.controller = None
         self.finish_pairing = None
@@ -117,7 +119,14 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             key = user_input["device"]
             self.hkid = self.devices[key].device_id
             self.model = self.devices[key].info["md"]
-            self.name = key[: -len(MDNS_SUFFIX)] if key.endswith(MDNS_SUFFIX) else key
+            if key.endswith(MDNS_SUFFIX_TCP):
+                self.name = key[: -len(MDNS_SUFFIX_TCP)]
+                self.type = aiohomekit.zeroconf.HAP_TYPE_TCP
+            elif key.endswith(MDNS_SUFFIX_UDP):
+                self.name = key[: -len(MDNS_SUFFIX_UDP)]
+                self.type = aiohomekit.zeroconf.HAP_TYPE_UDP
+            else:
+                self.name = key
             await self.async_set_unique_id(
                 normalize_hkid(self.hkid), raise_on_progress=False
             )
@@ -127,7 +136,12 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if self.controller is None:
             await self._async_setup_controller()
 
-        all_hosts = await self.controller.discover_ip()
+        all_hosts = list(
+            filter(
+                lambda x: not isinstance(x, Exception),
+                await self.controller.discover_all(),
+            )
+        )
 
         self.devices = {}
         for host in all_hosts:
@@ -156,7 +170,12 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if self.controller is None:
             await self._async_setup_controller()
 
-        devices = await self.controller.discover_ip(max_seconds=5)
+        devices = list(
+            filter(
+                lambda x: not isinstance(x, Exception),
+                await self.controller.discover_all(max_seconds=5),
+            )
+        )
         for device in devices:
             if normalize_hkid(device.device_id) != unique_id:
                 continue
@@ -166,7 +185,7 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     host=record["address"],
                     port=record["port"],
                     hostname=record["name"],
-                    type="_hap._tcp.local.",
+                    type=record["type"],
                     name=record["name"],
                     properties={
                         "md": record["md"],
@@ -230,7 +249,7 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         normalized_hkid = normalize_hkid(hkid)
 
         model = properties["md"]
-        name = discovery_info.name.replace("._hap._tcp.local.", "")
+        name = discovery_info.name.replace(f".{discovery_info.type}", "")
         status_flags = int(properties["sf"])
         paired = not status_flags & 0x01
 
@@ -341,6 +360,7 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="ignored_model")
 
         self.name = name
+        self.type = discovery_info.type
         self.model = model
         self.hkid = hkid
 
@@ -418,7 +438,9 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # we always check to see if self.finish_paring has been
             # set.
             try:
-                discovery = await self.controller.find_ip_by_device_id(self.hkid)
+                discovery = await self.controller.find_ip_by_device_id(
+                    self.hkid, hap_type=self.type
+                )
                 self.finish_pairing = await discovery.start_pairing(self.hkid)
 
             except aiohomekit.BusyError:
