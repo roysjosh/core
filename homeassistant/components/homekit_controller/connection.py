@@ -16,7 +16,7 @@ from aiohomekit.model import Accessories, Accessory
 from aiohomekit.model.characteristics import Characteristic, CharacteristicsTypes
 from aiohomekit.model.services import Service, ServicesTypes
 
-from homeassistant.const import ATTR_VIA_DEVICE
+from homeassistant.const import ATTR_VIA_DEVICE, MAJOR_VERSION
 from homeassistant.core import CALLBACK_TYPE, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
@@ -211,8 +211,12 @@ class HKDevice:
             manufacturer=info.value(CharacteristicsTypes.MANUFACTURER, ""),
             model=info.value(CharacteristicsTypes.MODEL, ""),
             sw_version=info.value(CharacteristicsTypes.FIRMWARE_REVISION, ""),
-            hw_version=info.value(CharacteristicsTypes.HARDWARE_REVISION, ""),
+            #hw_version=info.value(CharacteristicsTypes.HARDWARE_REVISION, ""),
         )
+
+        # XXX XXX XXX temporary hack to allow "custom component" install on 2021.X.Y
+        if MAJOR_VERSION >= 2022:
+            device_info["hw_version"] = info.value(CharacteristicsTypes.HARDWARE_REVISION, "")
 
         if accessory.aid != 1:
             # Every pairing has an accessory 1
