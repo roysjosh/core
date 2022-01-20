@@ -136,12 +136,7 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if self.controller is None:
             await self._async_setup_controller()
 
-        all_hosts = list(
-            filter(
-                lambda x: not isinstance(x, Exception),
-                await self.controller.discover_all(),
-            )
-        )
+        all_hosts = await self.controller.discover_all()
 
         self.devices = {}
         for host in all_hosts:
