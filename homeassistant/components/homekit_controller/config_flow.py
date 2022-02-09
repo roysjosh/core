@@ -207,7 +207,9 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         normalized_hkid = normalize_hkid(hkid)
 
         model = properties["md"]
-        name = discovery_info.name.replace("._hap._tcp.local.", "")
+        name = discovery_info.name.replace("._hap._tcp.local.", "").replace(
+            "._hap._udp.local.", ""
+        )
         status_flags = int(properties["sf"])
         paired = not status_flags & 0x01
 
@@ -243,7 +245,9 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # that the device is available and we should not wait
             # to retry connecting any longer. reconnect_soon
             # will do nothing if the device is already connected
-            await conn.pairing.connection.reconnect_soon()
+            # Note that not all backends have this
+            if hasattr(conn.pairing, "connection"):
+                await conn.pairing.connection.reconnect_soon()
             if conn.config_num != config_num:
                 _LOGGER.debug(
                     "HomeKit info %s: c# incremented, refreshing entities", hkid

@@ -150,6 +150,11 @@ ZEROCONF = {
             "name": "*z.wave-me*"
         }
     ],
+    "_hap._udp.local.": [
+        {
+            "domain": "homekit_controller"
+        }
+    ],
     "_homekit._tcp.local.": [
         {
             "domain": "homekit"
