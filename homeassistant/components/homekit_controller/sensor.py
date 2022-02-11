@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import logging
 
 from aiohomekit.model.characteristics import Characteristic, CharacteristicsTypes
+from aiohomekit.model.characteristics.const import ThreadNodeCapabilities, ThreadStatus
 from aiohomekit.model.services import Service, ServicesTypes
 
 from homeassistant.components.sensor import (
@@ -27,6 +29,7 @@ from homeassistant.const import (
     TEMP_CELSIUS,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType
 
@@ -34,6 +37,8 @@ from . import KNOWN_DEVICES, CharacteristicEntity, HomeKitEntity
 from .connection import HKDevice
 
 CO2_ICON = "mdi:molecule-co2"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -343,6 +348,92 @@ class HomeKitBatterySensor(HomeKitEntity, SensorEntity):
         return self.service.value(CharacteristicsTypes.BATTERY_LEVEL)
 
 
+class HomeKitThreadTransportSensor(HomeKitEntity, SensorEntity):
+    """Representation of a Homekit battery sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def get_characteristic_types(self) -> list[str]:
+        """Define the homekit characteristics the entity is tracking."""
+        return [
+            CharacteristicsTypes.THREAD_NODE_CAPABILITIES,
+            # CharacteristicsTypes.THREAD_OPENTHREAD_VERSION,
+            CharacteristicsTypes.THREAD_STATUS,
+        ]
+
+    @property
+    def icon(self) -> str:
+        """Return the sensor icon."""
+        if not self.available or self.state is None:
+            return "mdi:sync-off"
+        raw_caps = self.service.value(CharacteristicsTypes.THREAD_NODE_CAPABILITIES)
+        raw_status = self.service.value(CharacteristicsTypes.THREAD_STATUS)
+        if raw_status & ThreadStatus.BORDER_ROUTER:
+            return "mdi:crop-square"
+        elif raw_status & ThreadStatus.LEADER:
+            return "mdi:pentagon-outline"
+        elif raw_status & ThreadStatus.ROUTER:
+            return "mdi:pentagon"
+        elif raw_status & ThreadStatus.CHILD:
+            if raw_caps & ThreadNodeCapabilities.SLEEPY:
+                return "mdi:sleep"
+            elif raw_caps & ThreadNodeCapabilities.MINIMAL:
+                return "mdi:circle"
+            elif raw_caps & ThreadNodeCapabilities.ROUTER_ELIGIBLE:
+                return "mdi:plus-circle"
+            elif raw_caps & ThreadNodeCapabilities.FULL:
+                return "mdi:circle-outline"
+            return "mdi:circle"
+        elif raw_status & ThreadStatus.JOINING:
+            return "mdi:sync"
+        elif raw_status & ThreadStatus.DETACHED:
+            return "mdi:minus-circle-outline"
+        else:
+            return "mdi:sync-off"
+
+    @property
+    def name(self) -> str:
+        """Return the name of the device."""
+        return f"{super().name} Thread status"
+
+    @property
+    def node_capabilities(self) -> list[str]:
+        str_caps = []
+        raw_caps = self.service.value(CharacteristicsTypes.THREAD_NODE_CAPABILITIES)
+        if raw_caps & ThreadNodeCapabilities.MINIMAL:
+            str_caps.append("Minimal")
+        if raw_caps & ThreadNodeCapabilities.SLEEPY:
+            str_caps.append("Sleepy")
+        if raw_caps & ThreadNodeCapabilities.FULL:
+            str_caps.append("Full")
+        if raw_caps & ThreadNodeCapabilities.ROUTER_ELIGIBLE:
+            str_caps.append("Router-eligible")
+        if raw_caps & ThreadNodeCapabilities.BORDER_ROUTER_CAPABLE:
+            str_caps.append("Border Router capable")
+        return ", ".join(str_caps)
+
+    @property
+    def native_value(self) -> list[str]:
+        """Return the current battery level percentage."""
+        str_status = []
+        raw_status = self.service.value(CharacteristicsTypes.THREAD_STATUS)
+        if raw_status & ThreadStatus.DISABLED:
+            str_status.append("Disabled")
+        if raw_status & ThreadStatus.DETACHED:
+            str_status.append("Detached")
+        if raw_status & ThreadStatus.JOINING:
+            str_status.append("Joining")
+        if raw_status & ThreadStatus.CHILD:
+            str_status.append("Child")
+        if raw_status & ThreadStatus.ROUTER:
+            str_status.append("Router")
+        if raw_status & ThreadStatus.LEADER:
+            str_status.append("Leader")
+        if raw_status & ThreadStatus.BORDER_ROUTER:
+            str_status.append("Border Router")
+        return ", ".join(str_status)
+
+
 class SimpleSensor(CharacteristicEntity, SensorEntity):
     """
     A simple sensor for a single characteristic.
@@ -388,6 +479,7 @@ ENTITY_TYPES = {
     ServicesTypes.LIGHT_SENSOR: HomeKitLightSensor,
     ServicesTypes.CARBON_DIOXIDE_SENSOR: HomeKitCarbonDioxideSensor,
     ServicesTypes.BATTERY_SERVICE: HomeKitBatterySensor,
+    ServicesTypes.THHREAD_TRANSPORT: HomeKitThreadTransportSensor,
 }
 
 

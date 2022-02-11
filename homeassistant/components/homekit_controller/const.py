@@ -48,6 +48,7 @@ HOMEKIT_ACCESSORY_DISPATCH = {
     ServicesTypes.TELEVISION: "media_player",
     ServicesTypes.VALVE: "switch",
     ServicesTypes.CAMERA_RTP_STREAM_MANAGEMENT: "camera",
+    ServicesTypes.THHREAD_TRANSPORT: "sensor",
 }
 
 CHARACTERISTIC_PLATFORMS = {
