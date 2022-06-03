@@ -247,7 +247,7 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # will do nothing if the device is already connected
             # Note that not all backends have this
             if hasattr(conn.pairing, "connection"):
-                await conn.pairing.connection.reconnect_soon()
+                await conn.pairing.connection.reconnect_soon(updated_ip_port)
             if conn.config_num != config_num:
                 _LOGGER.debug(
                     "HomeKit info %s: c# incremented, refreshing entities", hkid
