@@ -260,6 +260,10 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             "AccessoryIP": discovery_info.host,
             "AccessoryPort": discovery_info.port,
         }
+        if "._tcp." in discovery_info.name:
+            updated_ip_port["Connection"] = "IP"
+        elif "._udp." in discovery_info.name:
+            updated_ip_port["Connection"] = "CoAP"
 
         # If the device is already paired and known to us we should monitor c#
         # (config_num) for changes. If it changes, we check for new entities
@@ -364,9 +368,6 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             HomeKitAdvertisement,
         )
 
-        await self.async_set_unique_id(discovery_info.address)
-        self._abort_if_unique_id_configured()
-
         mfr_data = discovery_info.manufacturer_data
 
         try:
@@ -375,6 +376,9 @@ class HomekitControllerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
         except ValueError:
             return self.async_abort(reason="ignored_model")
+
+        await self.async_set_unique_id(normalize_hkid(device.id))
+        self._abort_if_unique_id_configured()
 
         if not (device.status_flags & StatusFlags.UNPAIRED):
             return self.async_abort(reason="already_paired")
